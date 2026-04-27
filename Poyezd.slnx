@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Poyezd.Api/Poyezd.Api.csproj" />
+  <Project Path="Poyezd.Domain/Poyezd.Domain.csproj" />
+</Solution>
