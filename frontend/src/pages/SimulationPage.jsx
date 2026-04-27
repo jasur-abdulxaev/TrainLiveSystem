@@ -66,7 +66,8 @@ export default function SimulationPage() {
         bus: { capacity: 100, gamma: 0.36, speedKmH: 19.87, stopTimeSeconds: 28 }
       };
 
-      const response = await axios.post('http://localhost:5001/api/simulation', payload, { timeout: 8000 });
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/simulation';
+      const response = await axios.post(apiUrl, payload, { timeout: 8000 });
       if (response.data) {
         setResult(response.data);
       } else {
