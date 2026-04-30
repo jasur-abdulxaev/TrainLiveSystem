@@ -10,38 +10,43 @@ public interface IScheduleService
 public class ScheduleService : IScheduleService
 {
     private const double TRIP_DISTANCE_ONE_WAY = 12.5; // km
-    private const double ZERO_TRIP_DISTANCE = 5.2;    // km (from depot D to A or B)
+    private const double ZERO_TRIP_DISTANCE = 5.2;    // km (from depot D)
     private const int END_STOP_WAIT_MINS = 5;
     private const int INTERMEDIATE_STOPS_COUNT = 9;
 
     public SimulationResponse Simulate(SimulationRequest request)
     {
         var response = new SimulationResponse();
-        double speed = request.Bus.SpeedKmH > 0 ? request.Bus.SpeedKmH : 25.0;
-        int capacity = request.Bus.Capacity > 0 ? request.Bus.Capacity : 71;
+        var mazBus = new Bus(); // Maz-303 defaults
         
-        // 1. Calculate t_AB using the requested formula
-        // t_AB = floor( (L_AB * 60 / V_t) + n_po * (T_po / 60) + T_stB + 0.5 )
+        double speed = request.Bus.SpeedKmH > 0 ? request.Bus.SpeedKmH : mazBus.MaxSpeed / 3.2; // approx 25kmh
+        int capacity = request.Bus.Capacity > 0 ? request.Bus.Capacity : mazBus.NominalCapacity;
+        
+        // 1. Calculate t_AB using formula
         double travelTimeMins = (TRIP_DISTANCE_ONE_WAY * 60) / speed;
         double dwellTimeMins = INTERMEDIATE_STOPS_COUNT * (request.Bus.StopTimeSeconds / 60.0);
         double totalOneWayTimeMins = Math.Floor(travelTimeMins + dwellTimeMins + END_STOP_WAIT_MINS + 0.5);
 
-        // 2. Initial Bus Fleet (Basic schedule)
+        // 2. Initial Bus Fleet
         var units = new List<BusUnit>
         {
-            new BusUnit("71", "04:38", "21:51", "One-shift"),
-            new BusUnit("72", "04:58", "00:56", "Two-shift"),
-            new BusUnit("74", "05:17", "22:30", "One-shift")
+            new BusUnit("71", "04:38", "21:51", "One-shift (Main)"),
+            new BusUnit("72", "04:58", "00:56", "Two-shift (Main)"),
+            new BusUnit("74", "05:17", "22:30", "One-shift (Main)")
         };
 
-        // 3. Dynamic Peak Hour Management (Automatic Release)
+        // 3. Peak Hour Management using Bus Domain logic
         foreach (var flow in request.Flows)
         {
-            if (flow.PassengersPerHour > capacity)
+            var extraRelease = mazBus.CheckAndGenerateRelease(flow.PassengersPerHour);
+            if (extraRelease != null)
             {
-                // Peak detected: Add "Razrivnoy" (Split-shift) release
-                var startTime = ParseTime(flow.TimePeriod.Split('-')[0]);
-                units.Add(new BusUnit($"P-{flow.TimePeriod}", flow.TimePeriod.Split('-')[0], 
+                var timeParts = flow.TimePeriod.Split('-');
+                var startTimeStr = timeParts[0];
+                var startTime = ParseTime(startTimeStr);
+                
+                // Add split-shift (razrivnoy) for peak
+                units.Add(new BusUnit($"P-{startTimeStr}", startTimeStr, 
                     startTime.AddHours(4).ToString("HH:mm"), "Razrivnoy (Peak)"));
             }
         }
@@ -56,13 +61,13 @@ public class ScheduleService : IScheduleService
             var inTime = ParseTime(unit.In);
             if (inTime < outTime) inTime = inTime.AddDays(1);
 
-            // Zero Trip from Depot D (DA)
+            // Zero Trip DA
             totalMileage += ZERO_TRIP_DISTANCE;
-            var currentTime = outTime.AddMinutes(15); // Zero trip duration
+            var currentTime = outTime.AddMinutes(15); 
             
             while (currentTime.AddMinutes(totalOneWayTimeMins) <= inTime)
             {
-                // Trip S1 -> S11
+                // Forward
                 response.Schedule.Trips.Add(new Trip 
                 { 
                     Departure = currentTime, 
@@ -74,7 +79,7 @@ public class ScheduleService : IScheduleService
                 totalTripsCount++;
                 totalMileage += TRIP_DISTANCE_ONE_WAY;
 
-                // Trip S11 -> S1
+                // Backward
                 if (currentTime.AddMinutes(totalOneWayTimeMins) <= inTime)
                 {
                     response.Schedule.Trips.Add(new Trip 
@@ -90,24 +95,19 @@ public class ScheduleService : IScheduleService
                 }
             }
 
-            // Zero Trip back to Depot D (AD)
+            // Zero Trip AD
             totalMileage += ZERO_TRIP_DISTANCE;
         }
 
-        // 4. Analytics and Stats
+        // 4. Finalize Stats
         int maxBuses = units.Count;
         string peakHour = "08:00";
         foreach (var flow in request.Flows)
         {
-            var requiredBuses = (int)Math.Ceiling(flow.PassengersPerHour / (double)capacity);
-            response.HourlyBusCounts.Add(new HourlyBusCount
-            {
-                TimePeriod = flow.TimePeriod,
-                RequiredBuses = requiredBuses,
-                PassengerCount = flow.PassengersPerHour
-            });
+            var req = (int)Math.Ceiling(flow.PassengersPerHour / (double)capacity);
+            response.HourlyBusCounts.Add(new HourlyBusCount { TimePeriod = flow.TimePeriod, RequiredBuses = req, PassengerCount = flow.PassengersPerHour });
             totalPassengers += flow.PassengersPerHour;
-            if (requiredBuses > maxBuses) peakHour = flow.TimePeriod;
+            if (req > maxBuses) peakHour = flow.TimePeriod;
         }
 
         response.Analytics.TotalPassengers = totalPassengers;
@@ -115,7 +115,7 @@ public class ScheduleService : IScheduleService
         response.Analytics.PeakHour = peakHour;
         response.Analytics.TotalTripsGenerated = totalTripsCount;
         response.Analytics.TotalMileageKm = Math.Round(totalMileage, 1);
-        response.Analytics.AvgEfficiency = Math.Round(92.5, 1);
+        response.Analytics.AvgEfficiency = 92.5;
         response.Analytics.SystemReliability = 99.5;
 
         return response;
@@ -123,9 +123,16 @@ public class ScheduleService : IScheduleService
 
     private DateTime ParseTime(string timeStr)
     {
-        if (string.IsNullOrEmpty(timeStr)) return DateTime.Today.AddHours(8);
-        var parts = timeStr.Split(':');
-        return DateTime.Today.AddHours(int.Parse(parts[0])).AddMinutes(int.Parse(parts[1]));
+        try 
+        {
+            if (string.IsNullOrEmpty(timeStr)) return DateTime.Today.AddHours(8);
+            var parts = timeStr.Trim().Split(':');
+            return DateTime.Today.AddHours(int.Parse(parts[0])).AddMinutes(int.Parse(parts[1]));
+        }
+        catch 
+        {
+            return DateTime.Today.AddHours(8);
+        }
     }
 }
 

@@ -124,16 +124,30 @@ export default function MapVisualizer({ timeMinutes, units = [] }) {
   }, [timeMinutes]);
 
   return (
-    <div className="relative w-full h-[600px] lg:h-[800px] bg-[#0f172a] rounded-b-xl overflow-hidden shadow-inner flex justify-center items-center">
-      <div className="absolute inset-0 z-0 pointer-events-none" style={{ backgroundImage: `linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px)`, backgroundSize: '40px 40px' }} />
+    <div className="relative w-full h-[600px] lg:h-[800px] bg-[#0f172a] rounded-b-xl overflow-hidden shadow-2xl flex justify-center items-center p-4">
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: `linear-gradient(rgba(59, 130, 246, 0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.2) 1px, transparent 1px)`, backgroundSize: '20px 20px' }} />
       
-      <svg width="100%" height="100%" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid meet" className="z-10 relative px-4">
+      <svg width="100%" height="100%" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid meet" className="z-10 relative bg-[#0f172a]/50 border-2 border-slate-700/50 rounded shadow-[0_0_50px_rgba(0,0,0,0.5)]">
         <defs>
           <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="2" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
+
+        {/* Technical Drawing Border */}
+        <rect x="5" y="5" width="390" height="790" fill="none" stroke="#334155" strokeWidth="1" />
+        <rect x="10" y="10" width="380" height="780" fill="none" stroke="#475569" strokeWidth="0.5" strokeDasharray="10 5" />
+
+        {/* Title Block (Bottom Right) */}
+        <g transform="translate(250, 720)">
+          <rect x="0" y="0" width="140" height="60" fill="#1e293b" stroke="#334155" strokeWidth="1" />
+          <line x1="0" y1="20" x2="140" y2="20" stroke="#334155" />
+          <line x1="0" y1="40" x2="140" y2="40" stroke="#334155" />
+          <text x="5" y="14" fontSize="6" fill="#64748b" fontWeight="bold">PROJECT: RAILWAYSIM PRO v2.3</text>
+          <text x="5" y="34" fontSize="6" fill="#64748b" fontWeight="bold">FORMAT: A3 STANDART</text>
+          <text x="5" y="54" fontSize="6" fill="#64748b" fontWeight="bold">SCALE: 1:25000</text>
+        </g>
 
         {CONNECTIONS.map(([id1, id2], i) => {
           const s1 = STATIONS.find(s => s.id === id1);
@@ -150,7 +164,7 @@ export default function MapVisualizer({ timeMinutes, units = [] }) {
         {STATIONS.map((station) => (
           <g key={station.id}>
             <circle cx={station.x} cy={station.y} r={station.type === 'depot' ? 4 : 6} fill="#0f172a" stroke={station.type === 'depot' ? "#475569" : "#f8fafc"} strokeWidth="1.5" filter={station.type !== 'depot' ? "url(#glow)" : ""} />
-            <text x={station.x + 12} y={station.y + 4} fontSize="9" fontWeight="bold" fill={station.type === 'depot' ? "#475569" : "#e2e8f0"} className="select-none">{station.id}</text>
+            <text x={station.x + 12} y={station.y + 4} fontSize="9" fontWeight="bold" fill={station.type === 'depot' ? "#475569" : "#e2e8f0"} className="select-none" style={{ textShadow: '0 0 5px rgba(0,0,0,1)' }}>{station.id}</text>
             <text x={station.x + 12} y={station.y + 14} fontSize="7" fill={station.type === 'depot' ? "#334155" : "#94a3b8"} className="select-none">{station.name}</text>
           </g>
         ))}
@@ -158,51 +172,53 @@ export default function MapVisualizer({ timeMinutes, units = [] }) {
         {trains.map((train) => (
           <g key={train.id} transform={`translate(${train.x}, ${train.y}) rotate(${train.angle})`} className="transition-all duration-300 ease-linear">
             {/* Bus Body */}
-            <rect x="-14" y="-7" width="28" height="14" rx="2" fill={train.isZeroTrip ? "#475569" : "#10b981"} stroke="#0f172a" strokeWidth="1" />
+            <rect x="-14" y="-7" width="28" height="14" rx="2" fill={train.isZeroTrip ? "#475569" : "#10b981"} stroke="#0f172a" strokeWidth="1" filter="url(#glow)" />
             <rect x="6" y="-5" width="6" height="10" rx="1" fill="rgba(255,255,255,0.2)" />
             
             {/* Info Overlay (Counter-rotated to stay horizontal) */}
             <g transform={`rotate(${-train.angle})`}>
-              <rect x="-22" y="-35" width="44" height="24" rx="4" fill="rgba(15,23,42,0.9)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+              <rect x="-22" y="-38" width="44" height="28" rx="4" fill="rgba(15,23,42,0.95)" stroke="rgba(59,130,246,0.3)" strokeWidth="0.5" />
               
               {/* Passenger Count */}
-              <text x="0" y="-24" fontSize="8" fontWeight="bold" fill={train.passengers > 60 ? "#ef4444" : "#f8fafc"} textAnchor="middle" className="font-mono">
+              <text x="0" y="-26" fontSize="9" fontWeight="black" fill={train.passengers > 60 ? "#ef4444" : "#f8fafc"} textAnchor="middle" className="font-mono">
                 {train.passengers}/71
               </text>
               
               {/* Next Stop Time */}
               {!train.isZeroTrip && (
-                <text x="0" y="-15" fontSize="6" fill="#94a3b8" textAnchor="middle" className="font-bold">
-                  NEXT: {train.nextStopIn}m
+                <text x="0" y="-15" fontSize="7" fill="#94a3b8" textAnchor="middle" className="font-bold">
+                  ARR: {train.nextStopIn}m
                 </text>
               )}
               {train.isZeroTrip && (
-                <text x="0" y="-15" fontSize="6" fill="#fbbf24" textAnchor="middle" className="font-bold uppercase tracking-tighter">
-                  ZERO TRIP
+                <text x="0" y="-15" fontSize="6" fill="#fbbf24" textAnchor="middle" className="font-black uppercase tracking-tighter">
+                  DEPOT D
                 </text>
               )}
 
-              {/* Unit ID */}
-              <rect x="-8" y="10" width="16" height="10" rx="2" fill="#1e293b" stroke="rgba(255,255,255,0.1)" />
-              <text x="0" y="17" fontSize="7" fontWeight="bold" fill="#3b82f6" textAnchor="middle">{train.number}</text>
+              {/* Unit ID Label */}
+              <g transform="translate(0, 15)">
+                 <rect x="-10" y="-5" width="20" height="10" rx="2" fill="#3b82f6" />
+                 <text x="0" y="2.5" fontSize="7" fontWeight="black" fill="white" textAnchor="middle">{train.number}</text>
+              </g>
             </g>
           </g>
         ))}
       </svg>
 
-      <div className="absolute bottom-4 left-4 right-4 flex justify-between no-print">
-        <div className="bg-slate-900/90 backdrop-blur-md px-4 py-3 rounded-xl border border-slate-700 shadow-2xl">
-          <h4 className="text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Route Legend</h4>
-          <div className="flex flex-col space-y-1.5">
-            <div className="flex items-center space-x-2"><div className="w-6 h-1 bg-blue-500 rounded-full"></div><span className="text-[10px] text-slate-400">Main Line</span></div>
-            <div className="flex items-center space-x-2"><div className="w-6 h-1 border-t border-dashed border-slate-500"></div><span className="text-[10px] text-slate-400">Depot Access</span></div>
+      <div className="absolute bottom-4 left-4 right-4 flex justify-between no-print px-6">
+        <div className="bg-slate-900/95 backdrop-blur-md px-6 py-4 rounded-xl border border-slate-700/50 shadow-2xl">
+          <h4 className="text-[10px] font-black text-slate-500 mb-3 uppercase tracking-widest border-b border-slate-800 pb-2">Technical Legend</h4>
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center space-x-3"><div className="w-8 h-1 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div><span className="text-[10px] font-bold text-slate-400">Main Transport Line</span></div>
+            <div className="flex items-center space-x-3"><div className="w-8 h-1 border-t-2 border-dashed border-slate-600"></div><span className="text-[10px] font-bold text-slate-400">Depot Access Route</span></div>
           </div>
         </div>
-        <div className="bg-slate-900/90 backdrop-blur-md px-4 py-3 rounded-xl border border-slate-700 shadow-2xl">
-          <h4 className="text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Fleet Status</h4>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2"><div className="w-3 h-2 bg-emerald-500 rounded-sm"></div><span className="text-[10px] text-slate-400">Active</span></div>
-            <div className="flex items-center space-x-2"><div className="w-3 h-2 bg-slate-500 rounded-sm"></div><span className="text-[10px] text-slate-400">Returning</span></div>
+        <div className="bg-slate-900/95 backdrop-blur-md px-6 py-4 rounded-xl border border-slate-700/50 shadow-2xl">
+          <h4 className="text-[10px] font-black text-slate-500 mb-3 uppercase tracking-widest border-b border-slate-800 pb-2">Fleet Status</h4>
+          <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-3"><div className="w-4 h-3 bg-emerald-500 rounded-sm shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div><span className="text-[10px] font-bold text-slate-400">Maz-303 Active</span></div>
+            <div className="flex items-center space-x-3"><div className="w-4 h-3 bg-slate-600 rounded-sm"></div><span className="text-[10px] font-bold text-slate-400">In-Depot / Off-Duty</span></div>
           </div>
         </div>
       </div>
