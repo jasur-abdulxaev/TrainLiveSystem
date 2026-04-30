@@ -73,29 +73,40 @@ export default function SimulationPage() {
       const payload = {
         route: { id: 1, name: 'Route 83', stops: [] },
         flows: flows.map(f => ({ timePeriod: f.time, passengersPerHour: f.count || 0 })),
-        bus: { capacity: 71, gamma: 0.8, speedKmH: 25, stopTimeSeconds: 30 }
+        bus: { 
+          capacity: 71, 
+          gamma: 0.8, 
+          speedKmH: 25, 
+          stopTimeSeconds: 30,
+          length: 12.5,
+          outerRadius: 12.5,
+          innerRadius: 5.3
+        },
+        timestamp: new Date().getTime() // Cache busting
       };
 
       let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/simulation';
       
-      // Safety check for production: if calling localhost from non-localhost, it's likely a config error
+      // Safety check for production
       if (apiUrl.includes('localhost') && window.location.hostname !== 'localhost') {
-        console.warn("API URL is pointing to localhost in a production environment!");
+        console.warn("API URL points to localhost in production!");
       }
 
-      const response = await axios.post(apiUrl, payload, { timeout: 10000 });
-      if (response.data && response.data.schedule) {
-        setResult(response.data);
+      const response = await axios.post(apiUrl, payload, { timeout: 15000 });
+      const data = response.data;
+      const schedule = data.schedule || data.Schedule;
+      if (data && schedule) {
+        setResult(data);
       } else {
-        throw new Error("Invalid response format from server");
+        throw new Error("Invalid backend response structure");
       }
     } catch (err) {
-      console.error("Simulation error:", err);
+      console.error("Simulation engine error:", err);
       if (retries > 0) {
-        setTimeout(() => runSimulation(retries - 1), 1500);
+        setTimeout(() => runSimulation(retries - 1), 2000);
         return;
       }
-      setError(err.message || "Connection failed");
+      setError(err.message || "Engine initialization failed");
     } finally {
       setLoading(false);
     }
@@ -107,34 +118,49 @@ export default function SimulationPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-32">
-        <div className="w-20 h-20 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin shadow-[0_0_20px_rgba(59,130,246,0.3)]"></div>
-        <h3 className="mt-8 text-xl font-bold text-white tracking-widest uppercase">{t.loadingStatus}</h3>
-        <p className="text-slate-400 mt-2">{t.loadingDesc}</p>
+      <div className="flex flex-col items-center justify-center py-32 bg-[#0f172a] min-h-[70vh] rounded-[2rem] border border-slate-800 shadow-[inset_0_0_50px_rgba(0,0,0,0.5)]">
+        <div className="relative">
+          <div className="w-24 h-24 border-4 border-slate-800 border-t-blue-500 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Zap className="w-8 h-8 text-blue-400 animate-pulse" />
+          </div>
+        </div>
+        <h3 className="mt-10 text-2xl font-black text-white tracking-[0.3em] uppercase">{t.loadingStatus}</h3>
+        <p className="text-slate-500 mt-4 font-bold tracking-widest text-xs uppercase">Initializing Maz-303 Engine v2.5...</p>
       </div>
     );
   }
 
   if (error || !result) {
     return (
-      <div className="bg-red-500/10 p-12 rounded-2xl border border-red-500/30 text-center max-w-2xl mx-auto mt-20 backdrop-blur-md">
-        <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-6" />
-        <h3 className="text-2xl font-bold text-white mb-2">{t.sysOffline}</h3>
-        <p className="text-red-300 mb-4">{error || t.sysOfflineDesc}</p>
-        <div className="bg-slate-900/50 p-4 rounded-lg mb-8 text-xs font-mono text-slate-400 text-left border border-slate-800">
-          Tip: Ensure VITE_API_URL is set in your deployment environment (Render/Vercel).
+      <div className="bg-red-500/5 p-16 rounded-[2.5rem] border border-red-500/20 text-center max-w-3xl mx-auto mt-20 backdrop-blur-2xl shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
+        <div className="w-24 h-24 bg-red-500/10 rounded-3xl flex items-center justify-center mx-auto mb-10 border border-red-500/30 rotate-12">
+          <AlertCircle className="w-12 h-12 text-red-500 -rotate-12" />
+        </div>
+        <h3 className="text-4xl font-black text-white mb-6 tracking-tighter">{t.sysOffline}</h3>
+        <p className="text-slate-400 mb-10 text-lg leading-relaxed">{error || t.sysOfflineDesc}</p>
+        <div className="bg-black/40 p-6 rounded-2xl mb-12 text-left border border-slate-800 shadow-inner">
+          <div className="flex items-center text-amber-500 mb-4 font-black uppercase tracking-widest text-[10px]">
+             <Info className="w-3 h-3 mr-2" /> Connection Debugger
+          </div>
+          <div className="space-y-2 font-mono text-[11px]">
+            <p className="text-slate-500">Current Endpoint: <span className="text-blue-400">{import.meta.env.VITE_API_URL || 'NOT_SET (using localhost)'}</span></p>
+            <p className="text-slate-500">Local Hostname: <span className="text-slate-300">{window.location.hostname}</span></p>
+          </div>
         </div>
         <button
           onClick={() => runSimulation()}
-          className="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-lg font-bold transition-all shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-[0.2em] transition-all shadow-[0_20px_50px_rgba(37,99,235,0.4)] active:scale-95"
         >
-          {lang === 'ru' ? 'Попробовать снова' : 'Retry Connection'}
+          {lang === 'ru' ? 'Перезапустить Систему' : 'Restart Simulation'}
         </button>
       </div>
     );
   }
 
-  const analytics = result.analytics || { 
+  const schedule = result.schedule || result.Schedule || { trips: [] };
+  const trips = schedule.trips || schedule.Trips || [];
+  const analytics = result.analytics || result.Analytics || { 
     maxRequiredBuses: 0, 
     totalPassengers: 0, 
     totalMileageKm: 0, 
@@ -154,34 +180,40 @@ export default function SimulationPage() {
   };
 
   const units = React.useMemo(() => {
-    if (!result?.schedule?.trips) return [];
+    if (!trips.length) return [];
     const busMap = new Map();
-    result.schedule.trips.forEach(trip => {
-      const dep = new Date(trip.departure);
-      const arr = new Date(trip.arrival);
+    trips.forEach(trip => {
+      const depStr = trip.departure || trip.Departure;
+      const arrStr = trip.arrival || trip.Arrival;
+      const bId = trip.busId || trip.BusId;
+      const rName = trip.routeName || trip.RouteName;
+
+      if (!depStr || !arrStr || !bId) return;
+      const dep = new Date(depStr);
+      const arr = new Date(arrStr);
+      if (isNaN(dep.getTime()) || isNaN(arr.getTime())) return;
+
       const depMins = dep.getHours() * 60 + dep.getMinutes();
       const arrMins = arr.getHours() * 60 + arr.getMinutes();
       
-      if (!busMap.has(trip.busId)) {
-        busMap.set(trip.busId, { id: trip.busId, out: depMins, inTime: arrMins, type: trip.routeName });
+      if (!busMap.has(bId)) {
+        busMap.set(bId, { id: bId, out: depMins, inTime: arrMins, type: rName });
       } else {
-        const bus = busMap.get(trip.busId);
+        const bus = busMap.get(busMap.has(bId) ? bId : bId);
         bus.out = Math.min(bus.out, depMins);
         bus.inTime = Math.max(bus.inTime, arrMins);
       }
     });
     return Array.from(busMap.values());
-  }, [result]);
+  }, [trips]);
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   const chartData = {
-    labels: result.hourlyBusCounts?.map(h => h.timePeriod) || [],
+    labels: (result.hourlyBusCounts || result.HourlyBusCounts || []).map(h => h.timePeriod || h.TimePeriod),
     datasets: [{
       label: t.unit,
-      data: result.hourlyBusCounts?.map(h => h.requiredBuses) || [],
+      data: (result.hourlyBusCounts || result.HourlyBusCounts || []).map(h => h.requiredBuses || h.RequiredBuses),
       backgroundColor: 'rgba(52, 211, 153, 0.8)',
       borderColor: 'rgb(16, 185, 129)',
       borderWidth: 1,
@@ -189,26 +221,34 @@ export default function SimulationPage() {
   };
 
   return (
-    <div className="space-y-6 pb-12 print:p-0">
-      <div className="flex flex-col md:flex-row justify-between items-center bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 shadow-xl no-print">
-        <div className="flex items-center space-x-6">
-          <div className="bg-[#0f172a] px-8 py-3 rounded-xl border border-slate-700 flex flex-col items-center shadow-inner">
-            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1 flex items-center">
-              <span className="w-2 h-2 rounded-full bg-red-500 mr-2 animate-pulse"></span> Live Real-Time
+    <div className="space-y-8 pb-20 print:p-0">
+      {/* Version Header Indicator */}
+      <div className="flex justify-center no-print">
+         <div className="bg-blue-600/10 border border-blue-500/20 px-4 py-1 rounded-full">
+            <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em]">Maz-303 Simulation Engine v2.5 Stable</span>
+         </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row justify-between items-center bg-slate-900/50 backdrop-blur-3xl p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl no-print relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 blur-[100px] pointer-events-none" />
+        <div className="flex items-center space-x-8 relative z-10">
+          <div className="bg-black/40 px-10 py-5 rounded-2xl border border-slate-700 flex flex-col items-center shadow-inner">
+            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2 flex items-center">
+              <span className="w-2 h-2 rounded-full bg-red-500 mr-2 animate-pulse"></span> {lang === 'ru' ? 'РЕАЛЬНОЕ ВРЕМЯ' : 'SYSTEM TIME'}
             </span>
-            <span className="text-4xl font-mono text-emerald-400 font-bold tracking-widest">{formatTime(currentTime)}</span>
+            <span className="text-5xl font-mono text-emerald-400 font-black tracking-tighter">{formatTime(currentTime)}</span>
           </div>
-          <div className="hidden lg:block border-l border-slate-700 pl-6">
-             <h2 className="text-xl font-bold text-white tracking-tight">RailwaySimPro</h2>
-             <p className="text-xs text-slate-400 uppercase tracking-widest">Analytics Dashboard v2.3</p>
+          <div className="hidden xl:block border-l border-slate-800 pl-8">
+             <h2 className="text-2xl font-black text-white tracking-tight italic">RAILWAYSIM<span className="text-blue-500">PRO</span></h2>
+             <p className="text-[10px] text-slate-500 uppercase font-black tracking-[0.4em] mt-1">Advanced Logistics Monitoring</p>
           </div>
         </div>
-        <div className="mt-4 md:mt-0 flex space-x-3">
+        <div className="mt-6 md:mt-0 flex space-x-4 relative z-10">
           <button 
             onClick={handlePrint} 
-            className="export-btn group flex items-center px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(59,130,246,0.5)] active:scale-95"
+            className="flex items-center px-10 py-4 bg-white/5 hover:bg-white/10 text-white font-black rounded-2xl border border-white/10 transition-all active:scale-95 shadow-xl uppercase text-xs tracking-widest"
           >
-            <FileDown className="w-5 h-5 mr-2 group-hover:translate-y-0.5 transition-transform" /> {t.exportPdf}
+            <FileDown className="w-4 h-4 mr-3 text-blue-400" /> {t.exportPdf}
           </button>
         </div>
       </div>
