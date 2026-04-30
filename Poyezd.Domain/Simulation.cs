@@ -5,14 +5,18 @@ public class SimulationRequest
     public Route Route { get; set; } = new();
     public List<PassengerFlow> Flows { get; set; } = new();
     public BusParameters Bus { get; set; } = new();
+    public double TimeScale { get; set; } = 1.0;
 }
 
 public class BusParameters
 {
-    public int Capacity { get; set; }
-    public double Gamma { get; set; }
-    public double SpeedKmH { get; set; }
-    public int StopTimeSeconds { get; set; }
+    public int Capacity { get; set; } = 71;
+    public double Gamma { get; set; } = 0.8;
+    public double SpeedKmH { get; set; } = 25.0;
+    public int StopTimeSeconds { get; set; } = 30;
+    public double Length { get; set; } = 12.5;
+    public double OuterRadius { get; set; } = 12.5;
+    public double InnerRadius { get; set; } = 5.3;
 }
 
 public class SimulationResponse

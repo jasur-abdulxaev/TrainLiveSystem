@@ -42,15 +42,16 @@ export default function SimulationPage() {
   const [error, setError] = useState(null);
   const { t, lang } = useLanguage();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [timeScale, setTimeScale] = useState(1);
+  const simTimeRef = useRef(new Date());
 
   useEffect(() => {
     const interval = setInterval(() => {
-      // For Belarus/Minsk timezone consistency
-      const minskTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Minsk"}));
-      setCurrentTime(minskTime);
+      simTimeRef.current = new Date(simTimeRef.current.getTime() + 1000 * timeScale);
+      setCurrentTime(new Date(simTimeRef.current));
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timeScale]);
 
   const runSimulation = async (retries = 3) => {
     setLoading(true);
@@ -63,7 +64,7 @@ export default function SimulationPage() {
       const payload = {
         route: { id: 1, name: 'Route 83', stops: [] },
         flows: flows.map(f => ({ timePeriod: f.time, passengersPerHour: f.count || 0 })),
-        bus: { capacity: 100, gamma: 0.36, speedKmH: 19.87, stopTimeSeconds: 28 }
+        bus: { capacity: 71, gamma: 0.8, speedKmH: 25, stopTimeSeconds: 30 }
       };
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/simulation';
@@ -124,12 +125,26 @@ export default function SimulationPage() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   };
 
-  const units = [
-    { id: '71', out: 4*60+38, shift: 14*60+41, inTime: 21*60+51 },
-    { id: '72', out: 4*60+58, shift: 14*60+54, inTime: 24*60+56 },
-    { id: '73', out: 8*60+13, shift: 15*60+7,  inTime: 25*60+17 },
-    { id: '74', out: 5*60+17, shift: 15*60+20, inTime: 22*60+30 },
-  ];
+  // Dynamically extract units from simulation results
+  const units = React.useMemo(() => {
+    if (!result?.schedule?.trips) return [];
+    const busMap = new Map();
+    result.schedule.trips.forEach(trip => {
+      const dep = new Date(trip.departure);
+      const arr = new Date(trip.arrival);
+      const depMins = dep.getHours() * 60 + dep.getMinutes();
+      const arrMins = arr.getHours() * 60 + arr.getMinutes();
+      
+      if (!busMap.has(trip.busId)) {
+        busMap.set(trip.busId, { id: trip.busId, out: depMins, inTime: arrMins, type: trip.routeName });
+      } else {
+        const bus = busMap.get(trip.busId);
+        bus.out = Math.min(bus.out, depMins);
+        bus.inTime = Math.max(bus.inTime, arrMins);
+      }
+    });
+    return Array.from(busMap.values());
+  }, [result]);
 
   const handlePrint = () => {
     window.print();
@@ -168,6 +183,28 @@ export default function SimulationPage() {
           >
             <FileDown className="w-5 h-5 mr-2 group-hover:translate-y-0.5 transition-transform" /> {t.exportPdf}
           </button>
+        </div>
+      </div>
+
+      <div className="bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl border border-slate-700 shadow-xl no-print">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center space-x-4 flex-grow w-full md:w-auto">
+            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Time Scale (x{timeScale})</span>
+            <input 
+              type="range" 
+              min="1" 
+              max="60" 
+              step="1" 
+              value={timeScale} 
+              onChange={(e) => setTimeScale(parseInt(e.target.value))}
+              className="flex-grow h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            />
+          </div>
+          <div className="flex space-x-2">
+            <button onClick={() => setTimeScale(1)} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded transition-all">1x</button>
+            <button onClick={() => setTimeScale(10)} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded transition-all">10x</button>
+            <button onClick={() => setTimeScale(60)} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded transition-all">60x</button>
+          </div>
         </div>
       </div>
 
@@ -218,7 +255,7 @@ export default function SimulationPage() {
           <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
             <h3 className="font-bold text-white flex items-center"><Activity className="w-5 h-5 mr-2 text-emerald-400" /> {t.liveRadar}</h3>
           </div>
-          <div className="flex-grow"><MapVisualizer timeMinutes={timeMinutes} /></div>
+          <div className="flex-grow"><MapVisualizer timeMinutes={timeMinutes} units={units} /></div>
         </div>
         <div className="flex flex-col space-y-6">
           <div className="bg-[#0f172a] rounded-2xl border border-slate-700 shadow-xl p-6 flex flex-col">
