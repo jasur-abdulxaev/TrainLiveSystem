@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Train, Clock, BarChart3, AlertCircle, Activity, Zap, Users, Info, Settings, FileDown, ShieldCheck, TrendingUp, Route } from 'lucide-react';
+import { Train, Clock, BarChart3, AlertCircle, Activity, Zap, Users, Info, Settings, FileDown, ShieldCheck, TrendingUp, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -274,20 +274,25 @@ export default function SimulationPage() {
         {[
           { label: t?.peakTrains, val: analytics.maxRequiredBuses, sub: analytics.peakHour, icon: TrendingUp, col: 'blue' },
           { label: t?.totalPass, val: (analytics.totalPassengers || 0).toLocaleString(), icon: Users, col: 'emerald' },
-          { label: t?.totalMileage, val: Math.round(analytics.totalMileageKm || 0), sub: t?.km, icon: Route, col: 'amber' },
+          { label: t?.totalMileage, val: Math.round(analytics.totalMileageKm || 0), sub: t?.km, icon: MapPin, col: 'amber' },
           { label: t?.systemReliability, val: `${analytics.systemReliability}%`, icon: ShieldCheck, col: 'purple' }
-        ].map((kpi, idx) => (
-          <div key={idx} className={`bg-slate-800/80 p-6 rounded-2xl border border-slate-700 shadow-lg relative overflow-hidden group hover:border-${kpi.col}-500/50 transition-all`}>
-            <div className="flex items-center space-x-3 mb-4">
-              <div className={`p-2 bg-${kpi.col}-500/20 rounded-lg text-${kpi.col}-400`}><kpi.icon className="w-5 h-5" /></div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{kpi.label || '---'}</p>
+        ].map((kpi, idx) => {
+          const IconComponent = kpi.icon;
+          return (
+            <div key={idx} className={`bg-slate-800/80 p-6 rounded-2xl border border-slate-700 shadow-lg relative overflow-hidden group hover:border-${kpi.col}-500/50 transition-all`}>
+              <div className="flex items-center space-x-3 mb-4">
+                <div className={`p-2 bg-${kpi.col}-500/20 rounded-lg text-${kpi.col}-400`}>
+                  {IconComponent && <IconComponent className="w-5 h-5" />}
+                </div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{kpi.label || '---'}</p>
+              </div>
+              <div className="flex items-baseline space-x-2">
+                <h3 className="text-4xl font-black text-white">{kpi.val}</h3>
+                {kpi.sub && <span className={`text-${kpi.col}-400 text-[10px] font-bold font-mono ml-2 uppercase`}>{kpi.sub}</span>}
+              </div>
             </div>
-            <div className="flex items-baseline space-x-2">
-              <h3 className="text-4xl font-black text-white">{kpi.val}</h3>
-              {kpi.sub && <span className={`text-${kpi.col}-400 text-[10px] font-bold font-mono ml-2 uppercase`}>{kpi.sub}</span>}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
