@@ -123,15 +123,16 @@ public class ScheduleService : IScheduleService
 
     private DateTime ParseTime(string timeStr)
     {
+        var baseDate = new DateTime(2026, 4, 30);
         try 
         {
-            if (string.IsNullOrEmpty(timeStr)) return DateTime.Today.AddHours(8);
+            if (string.IsNullOrEmpty(timeStr)) return baseDate.AddHours(8);
             var parts = timeStr.Trim().Split(':');
-            return DateTime.Today.AddHours(int.Parse(parts[0])).AddMinutes(int.Parse(parts[1]));
+            return baseDate.AddHours(int.Parse(parts[0])).AddMinutes(int.Parse(parts[1]));
         }
         catch 
         {
-            return DateTime.Today.AddHours(8);
+            return baseDate.AddHours(8);
         }
     }
 }

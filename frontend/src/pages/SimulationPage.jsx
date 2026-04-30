@@ -41,9 +41,18 @@ export default function SimulationPage() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const { t, lang } = useLanguage();
-  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Use a fixed base date to match backend: 2026-04-30
+  const getBaseDate = () => {
+    const d = new Date(2026, 3, 30); // Month is 0-indexed
+    const now = new Date();
+    d.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+    return d;
+  };
+
+  const [currentTime, setCurrentTime] = useState(getBaseDate());
   const [timeScale, setTimeScale] = useState(1);
-  const simTimeRef = useRef(new Date());
+  const simTimeRef = useRef(getBaseDate());
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -67,12 +76,18 @@ export default function SimulationPage() {
         bus: { capacity: 71, gamma: 0.8, speedKmH: 25, stopTimeSeconds: 30 }
       };
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/simulation';
-      const response = await axios.post(apiUrl, payload, { timeout: 8000 });
-      if (response.data) {
+      let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/simulation';
+      
+      // Safety check for production: if calling localhost from non-localhost, it's likely a config error
+      if (apiUrl.includes('localhost') && window.location.hostname !== 'localhost') {
+        console.warn("API URL is pointing to localhost in a production environment!");
+      }
+
+      const response = await axios.post(apiUrl, payload, { timeout: 10000 });
+      if (response.data && response.data.schedule) {
         setResult(response.data);
       } else {
-        throw new Error("No data received");
+        throw new Error("Invalid response format from server");
       }
     } catch (err) {
       console.error("Simulation error:", err);
@@ -93,7 +108,7 @@ export default function SimulationPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-32">
-        <div className="w-20 h-20 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
+        <div className="w-20 h-20 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin shadow-[0_0_20px_rgba(59,130,246,0.3)]"></div>
         <h3 className="mt-8 text-xl font-bold text-white tracking-widest uppercase">{t.loadingStatus}</h3>
         <p className="text-slate-400 mt-2">{t.loadingDesc}</p>
       </div>
@@ -105,7 +120,10 @@ export default function SimulationPage() {
       <div className="bg-red-500/10 p-12 rounded-2xl border border-red-500/30 text-center max-w-2xl mx-auto mt-20 backdrop-blur-md">
         <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-6" />
         <h3 className="text-2xl font-bold text-white mb-2">{t.sysOffline}</h3>
-        <p className="text-red-300 mb-8">{error || t.sysOfflineDesc}</p>
+        <p className="text-red-300 mb-4">{error || t.sysOfflineDesc}</p>
+        <div className="bg-slate-900/50 p-4 rounded-lg mb-8 text-xs font-mono text-slate-400 text-left border border-slate-800">
+          Tip: Ensure VITE_API_URL is set in your deployment environment (Render/Vercel).
+        </div>
         <button
           onClick={() => runSimulation()}
           className="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-lg font-bold transition-all shadow-[0_0_15px_rgba(239,68,68,0.4)]"
@@ -116,16 +134,25 @@ export default function SimulationPage() {
     );
   }
 
-  const analytics = result.analytics || { maxRequiredBuses: 0, totalPassengers: 0, totalMileageKm: 0, avgEfficiency: 0, peakHour: '-', systemReliability: 0, totalTripsGenerated: 0 };
+  const analytics = result.analytics || { 
+    maxRequiredBuses: 0, 
+    totalPassengers: 0, 
+    totalMileageKm: 0, 
+    avgEfficiency: 0, 
+    peakHour: '-', 
+    systemReliability: 0, 
+    totalTripsGenerated: 0 
+  };
+  
   const timeMinutes = currentTime.getHours() * 60 + currentTime.getMinutes() + (currentTime.getSeconds() / 60);
   const formatTime = (dateObj) => dateObj.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  
   const formatMinutesToHHMM = (mins) => {
     const h = Math.floor(mins / 60) % 24;
     const m = Math.floor(mins % 60);
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   };
 
-  // Dynamically extract units from simulation results
   const units = React.useMemo(() => {
     if (!result?.schedule?.trips) return [];
     const busMap = new Map();
