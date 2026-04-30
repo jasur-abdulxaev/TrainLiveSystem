@@ -94,15 +94,30 @@ export default function SimulationPage() {
   const analytics = result?.analytics || result?.Analytics || {};
   const timeMinutes = currentTime.getHours() * 60 + currentTime.getMinutes() + (currentTime.getSeconds() / 60);
 
-  const units = trips.reduce((acc, trip) => {
-    const bId = trip.busId || trip.BusId;
-    const dep = new Date(trip.departure || trip.Departure);
-    const arr = new Date(trip.arrival || trip.Arrival);
-    const depMins = dep.getHours() * 60 + dep.getMinutes();
-    const arrMins = arr.getHours() * 60 + arr.getMinutes();
-    if (!acc.find(u => u.id === bId)) acc.push({ id: bId, out: depMins, inTime: arrMins });
-    return acc;
-  }, []);
+  // OPTIMIZATION: Calculate units only once when API result changes
+  const units = React.useMemo(() => {
+    if (!trips.length) return [];
+    const busMap = new Map();
+    trips.forEach(trip => {
+      const bId = trip.busId || trip.BusId;
+      if (!bId) return;
+      const dep = new Date(trip.departure || trip.Departure);
+      const arr = new Date(trip.arrival || trip.Arrival);
+      if (isNaN(dep.getTime()) || isNaN(arr.getTime())) return;
+
+      const depMins = dep.getHours() * 60 + dep.getMinutes();
+      const arrMins = arr.getHours() * 60 + arr.getMinutes();
+      
+      if (!busMap.has(bId)) {
+        busMap.set(bId, { id: bId, out: depMins, inTime: arrMins });
+      } else {
+        const existing = busMap.get(bId);
+        existing.out = Math.min(existing.out, depMins);
+        existing.inTime = Math.max(existing.inTime, arrMins);
+      }
+    });
+    return Array.from(busMap.values());
+  }, [trips]);
 
   // Custom Stable Graph Component
   const hourlyData = result?.hourlyBusCounts || result?.HourlyBusCounts || [];
