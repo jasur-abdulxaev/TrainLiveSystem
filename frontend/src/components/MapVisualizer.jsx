@@ -78,7 +78,7 @@ export default function MapVisualizer({ timeMinutes, units = [] }) {
         const linearProgress = isForward ? progress * 2 : (1 - progress) * 2;
         const totalMainNodes = 11;
         const segmentFloat = linearProgress * (totalMainNodes - 1);
-        const segmentIndex = Math.floor(segmentFloat);
+        const segmentIndex = Math.min(Math.floor(segmentFloat), totalMainNodes - 2);
         const rawSegmentProgress = segmentFloat - segmentIndex;
         
         let segmentProgress = 0;
@@ -101,7 +101,7 @@ export default function MapVisualizer({ timeMinutes, units = [] }) {
       } else {
         const depotNodes = [STATIONS.find(s=>s.id==='S12'), STATIONS.find(s=>s.id==='S13'), STATIONS.find(s=>s.id==='S14'), STATIONS.find(s=>s.id==='S15'), STATIONS.find(s=>s.id==='S3')];
         const depotSegmentFloat = progress * 4;
-        const depotSegmentIndex = Math.floor(depotSegmentFloat);
+        const depotSegmentIndex = Math.min(Math.floor(depotSegmentFloat), 3);
         const rawDepotSegmentProgress = depotSegmentFloat - depotSegmentIndex;
         
         const dNode1 = depotNodes[depotSegmentIndex];
@@ -180,7 +180,7 @@ export default function MapVisualizer({ timeMinutes, units = [] }) {
               <rect x="-22" y="-38" width="44" height="28" rx="4" fill="rgba(15,23,42,0.95)" stroke="rgba(59,130,246,0.3)" strokeWidth="0.5" />
               
               {/* Passenger Count */}
-              <text x="0" y="-26" fontSize="9" fontWeight="black" fill={train.passengers > 60 ? "#ef4444" : "#f8fafc"} textAnchor="middle" className="font-mono">
+              <text x="0" y="-26" fontSize="9" fontWeight="900" fill={train.passengers > 60 ? "#ef4444" : "#f8fafc"} textAnchor="middle" className="font-mono">
                 {train.passengers}/71
               </text>
               
@@ -199,7 +199,7 @@ export default function MapVisualizer({ timeMinutes, units = [] }) {
               {/* Unit ID Label */}
               <g transform="translate(0, 15)">
                  <rect x="-10" y="-5" width="20" height="10" rx="2" fill="#3b82f6" />
-                 <text x="0" y="2.5" fontSize="7" fontWeight="black" fill="white" textAnchor="middle">{train.number}</text>
+                 <text x="0" y="2.5" fontSize="7" fontWeight="900" fill="white" textAnchor="middle">{train.number}</text>
               </g>
             </g>
           </g>
