@@ -3,32 +3,8 @@ import {
   Activity, Settings, FileDown, Zap, Clock, Info,
   BarChart3
 } from 'lucide-react';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import { Bar } from 'react-chartjs-2';
 import MapVisualizer from '../components/MapVisualizer';
 import { useLanguage } from '../context/LanguageContext';
-
-// Register ChartJS components safely
-try {
-  ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend
-  );
-} catch (e) {
-  console.error("ChartJS registration failed", e);
-}
 
 const DEFAULT_FLOWS = [
   { time: '06:00-07:00', count: 140 }, { time: '07:00-08:00', count: 430 },
@@ -128,16 +104,9 @@ export default function SimulationPage() {
     return acc;
   }, []);
 
-  const chartData = {
-    labels: (result?.hourlyBusCounts || result?.HourlyBusCounts || []).map(h => h.timePeriod || h.TimePeriod || ''),
-    datasets: [{
-      label: t?.unit || 'Unit',
-      data: (result?.hourlyBusCounts || result?.HourlyBusCounts || []).map(h => h.requiredBuses || h.RequiredBuses || 0),
-      backgroundColor: 'rgba(52, 211, 153, 0.8)',
-      borderColor: 'rgb(16, 185, 129)',
-      borderWidth: 1,
-    }],
-  };
+  // Custom Stable Graph Component
+  const hourlyData = result?.hourlyBusCounts || result?.HourlyBusCounts || [];
+  const maxVal = Math.max(...hourlyData.map(h => h.requiredBuses || h.RequiredBuses || 1), 1);
 
   return (
     <div className="space-y-8 pb-20 text-slate-300">
@@ -224,8 +193,21 @@ export default function SimulationPage() {
             <h3 className="font-black text-white flex items-center mb-6 uppercase tracking-widest text-xs border-b border-slate-800 pb-3">
               <BarChart3 className="w-5 h-5 mr-3 text-blue-400" /> {t?.capReq || 'Capacity'}
             </h3>
-            <div className="flex-grow">
-               {result && <Bar data={chartData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } }, x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 8 } } } } }} />}
+            <div className="flex-grow flex items-end justify-between space-x-1 pt-4">
+               {hourlyData.map((h, i) => {
+                 const val = h.requiredBuses || h.RequiredBuses || 0;
+                 const height = (val / maxVal) * 100;
+                 return (
+                   <div key={i} className="flex flex-col items-center flex-grow group relative h-full justify-end">
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[8px] font-bold px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-20">{val}</div>
+                      <div 
+                        className="w-full bg-blue-500/20 group-hover:bg-blue-400/40 border-t-2 border-blue-400/60 rounded-t-sm transition-all duration-500"
+                        style={{ height: `${Math.max(height, 5)}%` }}
+                      ></div>
+                      <span className="text-[7px] text-slate-600 font-bold mt-2 rotate-45 origin-left whitespace-nowrap">{(h.timePeriod || h.TimePeriod || '').split('-')[0]}</span>
+                   </div>
+                 );
+               })}
             </div>
           </div>
         </div>
