@@ -24,17 +24,17 @@ export default function SimulationPage() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const { t, lang } = useLanguage();
-  const [timeScale, setTimeScale] = useState(1);
-  const [currentTime, setCurrentTime] = useState(new Date(2026, 3, 30, 8, 0, 0));
-  const simTimeRef = useRef(new Date(2026, 3, 30, 8, 0, 0));
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     const interval = setInterval(() => {
-      simTimeRef.current = new Date(simTimeRef.current.getTime() + 1000 * timeScale);
-      setCurrentTime(new Date(simTimeRef.current));
+      const now = new Date();
+      // We keep the date fixed at 2026-04-30 to match simulation data, but time is REAL
+      const simTime = new Date(2026, 3, 30, now.getHours(), now.getMinutes(), now.getSeconds());
+      setCurrentTime(simTime);
     }, 1000);
     return () => clearInterval(interval);
-  }, [timeScale]);
+  }, []);
 
   const runSimulation = async () => {
     setLoading(true);
@@ -67,6 +67,11 @@ export default function SimulationPage() {
   }, []);
 
   const formatTime = (dateObj) => dateObj.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const formatMinutesToHHMM = (mins) => {
+    const h = Math.floor(mins / 60) % 24;
+    const m = Math.floor(mins % 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
 
   if (loading) {
     return (
@@ -152,12 +157,34 @@ export default function SimulationPage() {
         })}
       </div>
 
-      <div className="bg-slate-900 rounded-3xl border border-slate-800 h-[650px] relative overflow-hidden shadow-2xl">
-        <MapVisualizer timeMinutes={timeMinutes} units={units} />
-        <div className="absolute bottom-6 left-6 right-6 flex items-center space-x-6 bg-black/40 backdrop-blur-xl p-6 rounded-2xl border border-white/5">
-           <span className="text-white font-black text-xs uppercase tracking-widest">Time Scale:</span>
-           <input type="range" min="1" max="60" value={timeScale} onChange={(e) => setTimeScale(parseInt(e.target.value))} className="flex-grow accent-blue-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer" />
-           <span className="text-blue-400 font-mono font-black text-lg">{timeScale}x</span>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-2 bg-slate-900 rounded-3xl border border-slate-800 h-[650px] relative overflow-hidden shadow-2xl">
+          <MapVisualizer timeMinutes={timeMinutes} units={units} />
+        </div>
+        
+        <div className="bg-[#0f172a] rounded-3xl border border-slate-800 shadow-xl p-8 flex flex-col h-[650px]">
+          <h3 className="font-black text-white flex items-center text-lg mb-6 border-b border-slate-800 pb-4 uppercase tracking-widest">
+            <Settings className="w-6 h-6 mr-3 text-amber-400" /> {t?.unitDispatch || 'Dispatch'}
+          </h3>
+          <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
+            {units.map((u, idx) => {
+              let status = t?.statusParked || 'Parked', color = "text-slate-600";
+              if (timeMinutes >= u.out && timeMinutes <= u.inTime) {
+                if (timeMinutes < u.out + 15) { status = t?.statusZero || 'Zero'; color = "text-blue-400 animate-pulse"; }
+                else if (timeMinutes > u.inTime - 15) { status = t?.statusRet || 'Return'; color = "text-amber-500"; }
+                else { status = t?.statusOnLine || 'On-Line'; color = "text-emerald-400"; }
+              }
+              return (
+                <div key={idx} className="flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all">
+                  <div className="flex flex-col">
+                     <span className="text-lg font-black text-blue-400 leading-none">{u.id}</span>
+                     <span className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">{formatMinutesToHHMM(u.out)} - {formatMinutesToHHMM(u.inTime)}</span>
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${color}`}>{status}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
