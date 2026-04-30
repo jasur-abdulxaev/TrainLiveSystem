@@ -1,12 +1,34 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { 
   TrendingUp, Users, MapPin, ShieldCheck, 
-  Activity, Settings, FileDown, Zap, Clock, Info 
+  Activity, Settings, FileDown, Zap, Clock, Info,
+  BarChart3
 } from 'lucide-react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
 import MapVisualizer from '../components/MapVisualizer';
 import { useLanguage } from '../context/LanguageContext';
+
+// Register ChartJS components safely
+try {
+  ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+    Legend
+  );
+} catch (e) {
+  console.error("ChartJS registration failed", e);
+}
 
 const DEFAULT_FLOWS = [
   { time: '06:00-07:00', count: 140 }, { time: '07:00-08:00', count: 430 },
@@ -29,7 +51,6 @@ export default function SimulationPage() {
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
-      // We keep the date fixed at 2026-04-30 to match simulation data, but time is REAL
       const simTime = new Date(2026, 3, 30, now.getHours(), now.getMinutes(), now.getSeconds());
       setCurrentTime(simTime);
     }, 1000);
@@ -107,6 +128,17 @@ export default function SimulationPage() {
     return acc;
   }, []);
 
+  const chartData = {
+    labels: (result?.hourlyBusCounts || result?.HourlyBusCounts || []).map(h => h.timePeriod || h.TimePeriod || ''),
+    datasets: [{
+      label: t?.unit || 'Unit',
+      data: (result?.hourlyBusCounts || result?.HourlyBusCounts || []).map(h => h.requiredBuses || h.RequiredBuses || 0),
+      backgroundColor: 'rgba(52, 211, 153, 0.8)',
+      borderColor: 'rgb(16, 185, 129)',
+      borderWidth: 1,
+    }],
+  };
+
   return (
     <div className="space-y-8 pb-20 text-slate-300">
       {/* Header */}
@@ -162,28 +194,39 @@ export default function SimulationPage() {
           <MapVisualizer timeMinutes={timeMinutes} units={units} />
         </div>
         
-        <div className="bg-[#0f172a] rounded-3xl border border-slate-800 shadow-xl p-8 flex flex-col h-[650px]">
-          <h3 className="font-black text-white flex items-center text-lg mb-6 border-b border-slate-800 pb-4 uppercase tracking-widest">
-            <Settings className="w-6 h-6 mr-3 text-amber-400" /> {t?.unitDispatch || 'Dispatch'}
-          </h3>
-          <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-            {units.map((u, idx) => {
-              let status = t?.statusParked || 'Parked', color = "text-slate-600";
-              if (timeMinutes >= u.out && timeMinutes <= u.inTime) {
-                if (timeMinutes < u.out + 15) { status = t?.statusZero || 'Zero'; color = "text-blue-400 animate-pulse"; }
-                else if (timeMinutes > u.inTime - 15) { status = t?.statusRet || 'Return'; color = "text-amber-500"; }
-                else { status = t?.statusOnLine || 'On-Line'; color = "text-emerald-400"; }
-              }
-              return (
-                <div key={idx} className="flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all">
-                  <div className="flex flex-col">
-                     <span className="text-lg font-black text-blue-400 leading-none">{u.id}</span>
-                     <span className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">{formatMinutesToHHMM(u.out)} - {formatMinutesToHHMM(u.inTime)}</span>
+        <div className="flex flex-col space-y-6">
+          <div className="bg-[#0f172a] rounded-3xl border border-slate-800 shadow-xl p-8 flex flex-col h-[350px]">
+            <h3 className="font-black text-white flex items-center text-lg mb-6 border-b border-slate-800 pb-4 uppercase tracking-widest">
+              <Settings className="w-6 h-6 mr-3 text-amber-400" /> {t?.unitDispatch || 'Dispatch'}
+            </h3>
+            <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
+              {units.map((u, idx) => {
+                let status = t?.statusParked || 'Parked', color = "text-slate-600";
+                if (timeMinutes >= u.out && timeMinutes <= u.inTime) {
+                  if (timeMinutes < u.out + 15) { status = t?.statusZero || 'Zero'; color = "text-blue-400 animate-pulse"; }
+                  else if (timeMinutes > u.inTime - 15) { status = t?.statusRet || 'Return'; color = "text-amber-500"; }
+                  else { status = t?.statusOnLine || 'On-Line'; color = "text-emerald-400"; }
+                }
+                return (
+                  <div key={idx} className="flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all">
+                    <div className="flex flex-col">
+                       <span className="text-lg font-black text-blue-400 leading-none">{u.id}</span>
+                       <span className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">{formatMinutesToHHMM(u.out)} - {formatMinutesToHHMM(u.inTime)}</span>
+                    </div>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${color}`}>{status}</span>
                   </div>
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${color}`}>{status}</span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-slate-900 rounded-3xl border border-slate-800 shadow-xl p-8 flex-grow flex flex-col h-[274px]">
+            <h3 className="font-black text-white flex items-center mb-6 uppercase tracking-widest text-xs border-b border-slate-800 pb-3">
+              <BarChart3 className="w-5 h-5 mr-3 text-blue-400" /> {t?.capReq || 'Capacity'}
+            </h3>
+            <div className="flex-grow">
+               {result && <Bar data={chartData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } }, x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 8 } } } } }} />}
+            </div>
           </div>
         </div>
       </div>
